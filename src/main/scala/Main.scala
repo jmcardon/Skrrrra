@@ -3,23 +3,29 @@ package tsec
 import java.util.concurrent.Executors
 
 import cats.effect.IO
+import fs2.Stream
 import io.circe._
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
-import fs2.Stream
 import org.http4s.server.blaze.BlazeBuilder
+import org.http4s.server.middleware.{CORS, CORSConfig}
 import org.http4s.util.StreamApp
 import persistence.{PasswordStore, TokenStore, UserStore}
 import services._
-
-import scala.concurrent.duration._
 import tsec.authentication._
 import tsec.cipher.symmetric.imports.{AES128, SecretKey}
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
-object BlazeExample extends StreamApp[IO] with Http4sDsl[IO] {
+object Main extends StreamApp[IO] with Http4sDsl[IO] {
+
+  val corsConfig = CORSConfig(
+    anyOrigin = true,
+    allowCredentials = true,
+    maxAge = 100000
+  )
 
   val authenticatorSettings = TSecCookieSettings("tsec-auth", secure = false, httpOnly = true)
 
@@ -47,11 +53,11 @@ object BlazeExample extends StreamApp[IO] with Http4sDsl[IO] {
     val authedService   = AuthenticatedService[IO](requestAuth)
     IO.pure {
       BlazeBuilder[IO]
-        .bindHttp(8080, "0.0.0.0")
-        .mountService(route, "/")
-        .mountService(userAuthService.signupRoute)
-        .mountService(userAuthService.loginRoute)
-        .mountService(authedService.helloFromAuthentication)
+        .bindHttp(8081, "localhost")
+        .mountService(CORS(route, corsConfig),"/")
+        .mountService(CORS(userAuthService.signupRoute))
+        .mountService(CORS(userAuthService.loginRoute))
+        .mountService(CORS(authedService.helloFromAuthentication))
     }
   }
 

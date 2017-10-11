@@ -2,7 +2,7 @@ package services
 
 import java.util.UUID
 import cats.data.OptionT
-import cats.effect.Effect
+import cats.effect.{Effect, IO}
 import org.http4s.{HttpService, Response, Status}
 import org.http4s.dsl.Http4sDsl
 import models._
@@ -33,7 +33,7 @@ case class UserAuthenticationService[F[_]](
     case request @ POST -> Root / "api" / "signup" =>
       val response = for {
         signup   <- request.as[SignupForm]
-        exists   <- userStore.exists(signup.username).getOrRaise(SignupError)
+        exists   <- userStore.exists(signup.username).fold(())(_ => throw SignupError)
         password <- F.pure(signup.password.base64Bytes.toAsciiString.hashPassword[SCrypt])
         newUser = User(UUID.randomUUID(), signup.username, signup.age)
         _      <- userStore.put(newUser)
@@ -43,19 +43,24 @@ case class UserAuthenticationService[F[_]](
       } yield authenticator.embed(o, cookie)
 
       response
-        .handleError(_ => Response(Status.BadRequest))
+        .handleError { _ =>
+          Response(Status.BadRequest)
+        }
   }
 
   val loginRoute: HttpService[F] = HttpService[F] {
-    case request @ POST -> Root / "api" / "signup" =>
-      for {
+    case request @ POST -> Root / "api" / "login" =>
+      (for {
         login    <- request.as[LoginForm]
         user     <- userStore.exists(login.username).getOrRaise(LoginError)
         authInfo <- authStore.get(user.id).getOrRaise(LoginError)
         _        <- checkOrRaise(login.password, authInfo.password)
         cookie   <- authenticator.create(user.id).getOrRaise(LoginError)
         o        <- Ok()
-      } yield authenticator.embed(o, cookie)
+      } yield authenticator.embed(o, cookie))
+        .handleError { _ =>
+          Response(Status.BadRequest)
+        }
   }
 
 }

@@ -8,9 +8,7 @@ import org.http4s.EntityDecoder
 case class LoginForm(username: String, password: String)
 
 object LoginForm {
-  final object LoginError extends Exception {
-    override def getCause: Throwable = this
-
+  object LoginError extends Exception {
     override def getMessage: String = "Login Error"
 
     override def fillInStackTrace(): Throwable = this
