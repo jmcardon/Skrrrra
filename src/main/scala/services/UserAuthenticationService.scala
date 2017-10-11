@@ -16,7 +16,7 @@ import tsec.cipher.symmetric.imports.AES128
 import models.LoginForm.LoginError
 import models.SignupForm.SignupError
 
-class UserAuthenticationService[F[_]](
+case class UserAuthenticationService[F[_]](
     userStore: UserStore[F],
     authStore: PasswordStore[F],
     authenticator: EncryptedCookieAuthenticator[F, AES128, UUID, User]
